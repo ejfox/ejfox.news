@@ -1,6 +1,9 @@
-# Nuxt Minimal Starter
+# ejfox.news
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+A pinboard and AI generated news website for my friends. Any pinboard bookmark I tag with "!news" is AI-summarized and added to the website. 
+
+<img width="1110" height="614" alt="screenshot 2025-08-12 at 11 15 46 AM" src="https://github.com/user-attachments/assets/f86d9106-642f-49f1-b233-5d7cb0276034" />
+
 
 ## Setup
 
