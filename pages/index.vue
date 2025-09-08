@@ -185,98 +185,39 @@ const formatDate = (dateString: string) => {
   }).toUpperCase()
 }
 
+const { fetchBookmarks } = useBookmarks()
+
 const loadAndProcessNews = async () => {
   loading.value = true
   errorMessage.value = ''
   
   try {
-    // Try to load from database first (already processed articles)
-    try {
-      const dbArticles = await $fetch('/api/articles')
-      if (dbArticles && Array.isArray(dbArticles) && dbArticles.length > 0) {
-        newsArticles.value = dbArticles.map((article: any) => ({
-          id: article.id,
-          url: article.url,
-          title: article.title,
-          description: article.description,
-          summary: article.summary,
-          tags: Array.isArray(article.tags) ? article.tags : article.tags.split(' '),
-          time: article.time,
-          processed_at: article.processed_at
-        }))
-        console.log(`Loaded ${dbArticles.length} articles from database`)
-        loading.value = false
-        return // We have articles, done!
-      }
-    } catch (dbError) {
-      console.log('No database articles available, falling back to live processing')
-    }
+    const response = await fetchBookmarks({ 
+      count: 50,
+      baseUrl: 'https://ejfox.com'
+    })
     
-    // Fallback: load raw bookmarks first to ensure we show something
-    const bookmarks = await $fetch('/api/pinboard/bookmarks')
-    
-    console.log('Bookmarks response type:', typeof bookmarks, 'Array?', Array.isArray(bookmarks))
-    
-    if (!bookmarks) {
-      errorMessage.value = 'Failed to load bookmarks from Pinboard'
-      return
-    }
-    
-    // Ensure bookmarks is an array
-    const bookmarksArray = Array.isArray(bookmarks) ? bookmarks : []
-    
-    if (bookmarksArray.length === 0) {
+    if (!response.bookmarks || response.bookmarks.length === 0) {
       errorMessage.value = 'No !news bookmarks found in Pinboard'
       return
     }
     
-    // Show bookmarks immediately
-    newsArticles.value = bookmarksArray.map((bookmark: any) => ({
+    // Convert bookmarks to NewsArticle format
+    newsArticles.value = response.bookmarks.map((bookmark: any) => ({
       id: bookmark.hash,
-      url: bookmark.href,
-      title: bookmark.description,
-      description: bookmark.extended,
-      summary: 'Generating AI summary...',
-      tags: bookmark.tags.split(' '),
+      url: bookmark.url,
+      title: bookmark.title,
+      description: bookmark.description,
+      summary: bookmark.description || 'No summary available',
+      tags: bookmark.tags,
       time: bookmark.time,
-      processed_at: new Date().toISOString()
+      processed_at: response.cached_at
     }))
     
-    // Now try to get AI summaries in the background
-    try {
-      const response = await $fetch('/api/news/process', {
-        method: 'POST'
-      })
-      
-      if (response?.news && Array.isArray(response.news) && response.news.length > 0) {
-        // Update with AI summaries - properly type the articles
-        const validArticles: NewsArticle[] = response.news
-          .filter((article: any) => !article.error)
-          .map((article: any) => ({
-            id: article.id,
-            url: article.url,
-            title: article.title,
-            description: article.description,
-            summary: article.summary,
-            tags: Array.isArray(article.tags) ? article.tags : article.tags.split(' '),
-            time: article.time,
-            processed_at: article.processed_at
-          }))
-        
-        newsArticles.value = validArticles
-        console.log(`Updated with ${validArticles.length} AI-processed articles`)
-      }
-    } catch (aiError: any) {
-      // If AI processing fails, keep the bookmarks but update summary text
-      newsArticles.value = newsArticles.value.map(article => ({
-        ...article,
-        summary: article.description || 'AI summary temporarily unavailable'
-      }))
-      console.log('AI processing failed, showing raw bookmarks:', aiError.message)
-    }
+    console.log(`Loaded ${response.bookmarks.length} bookmarks from ejfox.com`)
     
   } catch (err: any) {
-    errorMessage.value = 'Unable to load bookmarks from Pinboard'
+    errorMessage.value = 'Unable to load bookmarks from ejfox.com'
     console.error('Failed to load bookmarks:', err)
   } finally {
     loading.value = false
